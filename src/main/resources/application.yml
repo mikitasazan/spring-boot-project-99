@@ -11,3 +11,8 @@ spring:
 jwt:
   secret: ${JWT_SECRET:hexlet-task-manager-super-secret-key-change-me-1234567890}
   expiration-ms: 86400000
+
+sentry:
+  dsn: ${SENTRY_DSN:}
+  auth-token: ${SENTRY_AUTH_TOKEN:}
+  environment: ${SPRING_PROFILES_ACTIVE:dev}
