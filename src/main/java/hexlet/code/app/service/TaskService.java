@@ -11,6 +11,7 @@ import hexlet.code.app.repository.LabelRepository;
 import hexlet.code.app.repository.TaskRepository;
 import hexlet.code.app.repository.TaskStatusRepository;
 import hexlet.code.app.repository.UserRepository;
+import hexlet.code.app.specification.TaskSpecification;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -29,8 +30,9 @@ public class TaskService {
 	private final UserRepository userRepository;
 	private final LabelRepository labelRepository;
 
-	public List<TaskDTO> getAll() {
-		return taskRepository.findAll().stream()
+	public List<TaskDTO> getAll(String titleCont, Long assigneeId, String status, Long labelId) {
+		var spec = TaskSpecification.withFilter(titleCont, assigneeId, status, labelId);
+		return taskRepository.findAll(spec).stream()
 				.map(this::toDTO)
 				.toList();
 	}

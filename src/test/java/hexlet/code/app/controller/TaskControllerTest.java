@@ -1,6 +1,7 @@
 package hexlet.code.app.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -159,6 +160,76 @@ class TaskControllerTest {
 	void showMissingTaskReturns404() throws Exception {
 		mockMvc.perform(get("/api/tasks/999999").with(user("someone@example.com")))
 				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void filterByTitleContReturnsMatchingTasksOnly() throws Exception {
+		var marker = "titlecont-" + System.nanoTime();
+		createTask(marker + "-match");
+		createTask("unrelated-task");
+
+		mockMvc.perform(get("/api/tasks").param("titleCont", marker).with(user("someone@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(1)))
+				.andExpect(jsonPath("$[0].title").value(marker + "-match"));
+	}
+
+	@Test
+	void filterByAssigneeIdReturnsMatchingTasksOnly() throws Exception {
+		var assignee = createUser("filter-assignee-" + System.nanoTime() + "@example.com");
+		var task = new Task();
+		task.setName("Assigned task for filter");
+		task.setTaskStatus(status);
+		task.setAssignee(assignee);
+		taskRepository.save(task);
+
+		createTask("Unassigned task for filter");
+
+		mockMvc.perform(get("/api/tasks")
+						.param("assigneeId", String.valueOf(assignee.getId()))
+						.with(user("someone@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(1)))
+				.andExpect(jsonPath("$[0].assignee_id").value(assignee.getId()));
+	}
+
+	@Test
+	void filterByStatusReturnsMatchingTasksOnly() throws Exception {
+		createTask("Task with this status");
+
+		var otherStatus = new TaskStatus();
+		otherStatus.setName("Other status " + System.nanoTime());
+		otherStatus.setSlug("other-status-" + System.nanoTime());
+		taskStatusRepository.save(otherStatus);
+
+		var otherTask = new Task();
+		otherTask.setName("Task with other status");
+		otherTask.setTaskStatus(otherStatus);
+		taskRepository.save(otherTask);
+
+		mockMvc.perform(get("/api/tasks").param("status", status.getSlug()).with(user("someone@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(1)))
+				.andExpect(jsonPath("$[0].status").value(status.getSlug()));
+	}
+
+	@Test
+	void filterByLabelIdReturnsMatchingTasksOnly() throws Exception {
+		var label = createLabel("filter-label-" + System.nanoTime());
+		var task = new Task();
+		task.setName("Labelled for filter");
+		task.setTaskStatus(status);
+		task.setLabels(java.util.Set.of(label));
+		taskRepository.save(task);
+
+		createTask("Not labelled for filter");
+
+		mockMvc.perform(get("/api/tasks")
+						.param("labelId", String.valueOf(label.getId()))
+						.with(user("someone@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(1)))
+				.andExpect(jsonPath("$[0].taskLabelIds[0]").value(label.getId()));
 	}
 
 	@Test
