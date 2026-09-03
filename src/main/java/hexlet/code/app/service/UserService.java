@@ -8,6 +8,7 @@ import hexlet.code.app.repository.UserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -41,6 +42,7 @@ public class UserService {
 
 	public UserDTO update(Long id, UserUpdateDTO data) {
 		var user = findOrThrow(id);
+		requireSelf(user);
 
 		if (data.email() != null) {
 			user.setEmail(data.email());
@@ -59,14 +61,20 @@ public class UserService {
 	}
 
 	public void delete(Long id) {
-		if (!userRepository.existsById(id)) {
-			throw notFound(id);
-		}
+		var user = findOrThrow(id);
+		requireSelf(user);
 		userRepository.deleteById(id);
 	}
 
 	private User findOrThrow(Long id) {
 		return userRepository.findById(id).orElseThrow(() -> notFound(id));
+	}
+
+	private void requireSelf(User user) {
+		var currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+		if (!user.getEmail().equals(currentEmail)) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only modify your own account");
+		}
 	}
 
 	private ResponseStatusException notFound(Long id) {
