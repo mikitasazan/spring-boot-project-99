@@ -13,12 +13,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import tools.jackson.databind.ObjectMapper;
 import hexlet.code.app.dto.TaskCreateDTO;
 import hexlet.code.app.dto.TaskUpdateDTO;
+import hexlet.code.app.model.Label;
 import hexlet.code.app.model.Task;
 import hexlet.code.app.model.TaskStatus;
 import hexlet.code.app.model.User;
+import hexlet.code.app.repository.LabelRepository;
 import hexlet.code.app.repository.TaskRepository;
 import hexlet.code.app.repository.TaskStatusRepository;
 import hexlet.code.app.repository.UserRepository;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +45,9 @@ class TaskControllerTest {
 
 	@Autowired
 	private UserRepository userRepository;
+
+	@Autowired
+	private LabelRepository labelRepository;
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -69,7 +75,7 @@ class TaskControllerTest {
 
 	@Test
 	void createRequiresAuth() throws Exception {
-		var data = new TaskCreateDTO(null, null, "Unauthorized task", null, status.getSlug());
+		var data = new TaskCreateDTO(null, null, "Unauthorized task", null, status.getSlug(), null);
 
 		mockMvc.perform(post("/api/tasks")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -80,7 +86,7 @@ class TaskControllerTest {
 	@Test
 	void createReturnsCreatedTaskWithMappedFields() throws Exception {
 		var assignee = createUser("assignee@example.com");
-		var data = new TaskCreateDTO(42, assignee.getId(), "Test title", "Test content", status.getSlug());
+		var data = new TaskCreateDTO(42, assignee.getId(), "Test title", "Test content", status.getSlug(), null);
 
 		mockMvc.perform(post("/api/tasks")
 						.with(user("someone@example.com"))
@@ -95,8 +101,32 @@ class TaskControllerTest {
 	}
 
 	@Test
+	void createWithLabelsRoundTripsTaskLabelIds() throws Exception {
+		var label = createLabel("labelled-task-label");
+		var data = new TaskCreateDTO(null, null, "Labelled task", null, status.getSlug(), List.of(label.getId()));
+
+		mockMvc.perform(post("/api/tasks")
+						.with(user("someone@example.com"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(data)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.taskLabelIds[0]").value(label.getId()));
+	}
+
+	@Test
+	void createWithUnknownLabelIdReturns400() throws Exception {
+		var data = new TaskCreateDTO(null, null, "Title", null, status.getSlug(), List.of(999999L));
+
+		mockMvc.perform(post("/api/tasks")
+						.with(user("someone@example.com"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(data)))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
 	void createWithUnknownStatusReturns400() throws Exception {
-		var data = new TaskCreateDTO(null, null, "Title", null, "no-such-slug");
+		var data = new TaskCreateDTO(null, null, "Title", null, "no-such-slug", null);
 
 		mockMvc.perform(post("/api/tasks")
 						.with(user("someone@example.com"))
@@ -107,7 +137,7 @@ class TaskControllerTest {
 
 	@Test
 	void createWithBlankTitleReturns400() throws Exception {
-		var data = new TaskCreateDTO(null, null, "", null, status.getSlug());
+		var data = new TaskCreateDTO(null, null, "", null, status.getSlug(), null);
 
 		mockMvc.perform(post("/api/tasks")
 						.with(user("someone@example.com"))
@@ -134,7 +164,7 @@ class TaskControllerTest {
 	@Test
 	void updateChangesOnlySentFields() throws Exception {
 		var task = createTask("Old title");
-		var data = new TaskUpdateDTO(null, null, "New title", null, null);
+		var data = new TaskUpdateDTO(null, null, "New title", null, null, null);
 
 		mockMvc.perform(put("/api/tasks/" + task.getId())
 						.with(user("someone@example.com"))
@@ -148,7 +178,7 @@ class TaskControllerTest {
 	@Test
 	void updateRequiresAuth() throws Exception {
 		var task = createTask("Untouchable");
-		var data = new TaskUpdateDTO(null, null, "Touched", null, null);
+		var data = new TaskUpdateDTO(null, null, "Touched", null, null, null);
 
 		mockMvc.perform(put("/api/tasks/" + task.getId())
 						.contentType(MediaType.APPLICATION_JSON)
@@ -188,6 +218,12 @@ class TaskControllerTest {
 		savedUser.setEmail(email);
 		savedUser.setPassword("irrelevant-for-this-test");
 		return userRepository.save(savedUser);
+	}
+
+	private Label createLabel(String name) {
+		var label = new Label();
+		label.setName(name);
+		return labelRepository.save(label);
 	}
 
 }

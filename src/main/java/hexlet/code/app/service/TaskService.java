@@ -3,13 +3,18 @@ package hexlet.code.app.service;
 import hexlet.code.app.dto.TaskCreateDTO;
 import hexlet.code.app.dto.TaskDTO;
 import hexlet.code.app.dto.TaskUpdateDTO;
+import hexlet.code.app.model.Label;
 import hexlet.code.app.model.Task;
 import hexlet.code.app.model.TaskStatus;
 import hexlet.code.app.model.User;
+import hexlet.code.app.repository.LabelRepository;
 import hexlet.code.app.repository.TaskRepository;
 import hexlet.code.app.repository.TaskStatusRepository;
 import hexlet.code.app.repository.UserRepository;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,6 +27,7 @@ public class TaskService {
 	private final TaskRepository taskRepository;
 	private final TaskStatusRepository taskStatusRepository;
 	private final UserRepository userRepository;
+	private final LabelRepository labelRepository;
 
 	public List<TaskDTO> getAll() {
 		return taskRepository.findAll().stream()
@@ -42,6 +48,9 @@ public class TaskService {
 
 		if (data.assigneeId() != null) {
 			task.setAssignee(findUserOrThrow(data.assigneeId()));
+		}
+		if (data.taskLabelIds() != null) {
+			task.setLabels(resolveLabels(data.taskLabelIds()));
 		}
 
 		return toDTO(taskRepository.save(task));
@@ -64,6 +73,9 @@ public class TaskService {
 		}
 		if (data.assigneeId() != null) {
 			task.setAssignee(findUserOrThrow(data.assigneeId()));
+		}
+		if (data.taskLabelIds() != null) {
+			task.setLabels(resolveLabels(data.taskLabelIds()));
 		}
 
 		return toDTO(taskRepository.save(task));
@@ -90,6 +102,14 @@ public class TaskService {
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown user id: " + userId));
 	}
 
+	private Set<Label> resolveLabels(List<Long> labelIds) {
+		return labelIds.stream()
+				.map(labelId -> labelRepository.findById(labelId)
+						.orElseThrow(() -> new ResponseStatusException(
+								HttpStatus.BAD_REQUEST, "Unknown label id: " + labelId)))
+				.collect(Collectors.toCollection(HashSet::new));
+	}
+
 	private ResponseStatusException notFound(Long id) {
 		return new ResponseStatusException(HttpStatus.NOT_FOUND, "Task with id " + id + " not found");
 	}
@@ -102,7 +122,8 @@ public class TaskService {
 				task.getAssignee() == null ? null : task.getAssignee().getId(),
 				task.getName(),
 				task.getDescription(),
-				task.getTaskStatus().getSlug()
+				task.getTaskStatus().getSlug(),
+				task.getLabels().stream().map(Label::getId).toList()
 		);
 	}
 

@@ -2,6 +2,7 @@ package hexlet.code.app.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
+import java.util.List;
 
 public record TaskDTO(
 		Long id,
@@ -10,6 +11,7 @@ public record TaskDTO(
 		@JsonProperty("assignee_id") Long assigneeId,
 		String title,
 		String content,
-		String status
+		String status,
+		List<Long> taskLabelIds
 ) {
 }
