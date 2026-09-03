@@ -1,4 +1,6 @@
 setup:
+	npm ci
+	npx build-frontend
 	./gradlew build
 
 build:
