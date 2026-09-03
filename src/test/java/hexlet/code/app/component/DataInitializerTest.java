@@ -23,6 +23,8 @@ class DataInitializerTest {
 
 	@Test
 	void createsTheAdminOnceAndIsIdempotentOnRerun() {
+		dataInitializer.run((ApplicationArguments) null);
+
 		var admin = userRepository.findByEmail("hexlet@example.com").orElseThrow();
 		assertThat(passwordEncoder.matches("qwerty", admin.getPassword())).isTrue();
 

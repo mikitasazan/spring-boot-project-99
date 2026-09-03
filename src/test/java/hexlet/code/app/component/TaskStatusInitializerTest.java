@@ -21,6 +21,8 @@ class TaskStatusInitializerTest {
 	void seedsTheDefaultStatusesOnceAndIsIdempotentOnRerun() {
 		var slugs = new String[] {"draft", "to_review", "to_be_fixed", "to_publish", "published"};
 
+		taskStatusInitializer.run((ApplicationArguments) null);
+
 		for (var slug : slugs) {
 			assertThat(taskStatusRepository.findBySlug(slug)).isPresent();
 		}

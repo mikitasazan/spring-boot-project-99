@@ -11,12 +11,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import tools.jackson.databind.ObjectMapper;
-import hexlet.code.app.dto.TaskStatusCreateDTO;
-import hexlet.code.app.dto.TaskStatusUpdateDTO;
+import hexlet.code.app.dto.TaskCreateDTO;
+import hexlet.code.app.dto.TaskUpdateDTO;
 import hexlet.code.app.model.Task;
 import hexlet.code.app.model.TaskStatus;
+import hexlet.code.app.model.User;
 import hexlet.code.app.repository.TaskRepository;
 import hexlet.code.app.repository.TaskStatusRepository;
+import hexlet.code.app.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,66 +29,76 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 @SpringBootTest
-class TaskStatusControllerTest {
+class TaskControllerTest {
 
 	@Autowired
 	private WebApplicationContext webApplicationContext;
 
 	@Autowired
+	private TaskRepository taskRepository;
+
+	@Autowired
 	private TaskStatusRepository taskStatusRepository;
 
 	@Autowired
-	private TaskRepository taskRepository;
+	private UserRepository userRepository;
 
 	@Autowired
 	private ObjectMapper objectMapper;
 
 	private MockMvc mockMvc;
+	private TaskStatus status;
 
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
 				.apply(springSecurity())
 				.build();
+
+		status = new TaskStatus();
+		status.setName("Task test status " + System.nanoTime());
+		status.setSlug("task-test-status-" + System.nanoTime());
+		status = taskStatusRepository.save(status);
 	}
 
 	@Test
 	void indexWithoutTokenReturns401() throws Exception {
-		mockMvc.perform(get("/api/task_statuses"))
+		mockMvc.perform(get("/api/tasks"))
 				.andExpect(status().isUnauthorized());
 	}
 
 	@Test
 	void createRequiresAuth() throws Exception {
-		var data = new TaskStatusCreateDTO("Unauthorized status", "unauthorized-status");
+		var data = new TaskCreateDTO(null, null, "Unauthorized task", null, status.getSlug());
 
-		mockMvc.perform(post("/api/task_statuses")
+		mockMvc.perform(post("/api/tasks")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(data)))
 				.andExpect(status().isUnauthorized());
 	}
 
 	@Test
-	void createReturnsCreatedStatus() throws Exception {
-		var data = new TaskStatusCreateDTO("In progress", "in-progress");
+	void createReturnsCreatedTaskWithMappedFields() throws Exception {
+		var assignee = createUser("assignee@example.com");
+		var data = new TaskCreateDTO(42, assignee.getId(), "Test title", "Test content", status.getSlug());
 
-		mockMvc.perform(post("/api/task_statuses")
+		mockMvc.perform(post("/api/tasks")
 						.with(user("someone@example.com"))
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(data)))
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.name").value("In progress"))
-				.andExpect(jsonPath("$.slug").value("in-progress"))
-				.andExpect(jsonPath("$.id").exists());
-
-		assertThat(taskStatusRepository.findBySlug("in-progress")).isPresent();
+				.andExpect(jsonPath("$.title").value("Test title"))
+				.andExpect(jsonPath("$.content").value("Test content"))
+				.andExpect(jsonPath("$.index").value(42))
+				.andExpect(jsonPath("$.status").value(status.getSlug()))
+				.andExpect(jsonPath("$.assignee_id").value(assignee.getId()));
 	}
 
 	@Test
-	void createWithBlankNameReturns400() throws Exception {
-		var data = new TaskStatusCreateDTO("", "blank-name-status");
+	void createWithUnknownStatusReturns400() throws Exception {
+		var data = new TaskCreateDTO(null, null, "Title", null, "no-such-slug");
 
-		mockMvc.perform(post("/api/task_statuses")
+		mockMvc.perform(post("/api/tasks")
 						.with(user("someone@example.com"))
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(data)))
@@ -94,85 +106,88 @@ class TaskStatusControllerTest {
 	}
 
 	@Test
-	void showReturnsOneStatus() throws Exception {
-		var status = createStatus("Show me", "show-me");
+	void createWithBlankTitleReturns400() throws Exception {
+		var data = new TaskCreateDTO(null, null, "", null, status.getSlug());
 
-		mockMvc.perform(get("/api/task_statuses/" + status.getId()).with(user("someone@example.com")))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.slug").value("show-me"));
+		mockMvc.perform(post("/api/tasks")
+						.with(user("someone@example.com"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(data)))
+				.andExpect(status().isBadRequest());
 	}
 
 	@Test
-	void showMissingStatusReturns404() throws Exception {
-		mockMvc.perform(get("/api/task_statuses/999999").with(user("someone@example.com")))
+	void showReturnsOneTask() throws Exception {
+		var task = createTask("Show me");
+
+		mockMvc.perform(get("/api/tasks/" + task.getId()).with(user("someone@example.com")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.title").value("Show me"));
+	}
+
+	@Test
+	void showMissingTaskReturns404() throws Exception {
+		mockMvc.perform(get("/api/tasks/999999").with(user("someone@example.com")))
 				.andExpect(status().isNotFound());
 	}
 
 	@Test
 	void updateChangesOnlySentFields() throws Exception {
-		var status = createStatus("Old name", "keep-slug");
-		var data = new TaskStatusUpdateDTO("New name", null);
+		var task = createTask("Old title");
+		var data = new TaskUpdateDTO(null, null, "New title", null, null);
 
-		mockMvc.perform(put("/api/task_statuses/" + status.getId())
+		mockMvc.perform(put("/api/tasks/" + task.getId())
 						.with(user("someone@example.com"))
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(data)))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.name").value("New name"))
-				.andExpect(jsonPath("$.slug").value("keep-slug"));
+				.andExpect(jsonPath("$.title").value("New title"))
+				.andExpect(jsonPath("$.status").value(status.getSlug()));
 	}
 
 	@Test
 	void updateRequiresAuth() throws Exception {
-		var status = createStatus("Untouchable", "untouchable");
-		var data = new TaskStatusUpdateDTO("Touched", null);
+		var task = createTask("Untouchable");
+		var data = new TaskUpdateDTO(null, null, "Touched", null, null);
 
-		mockMvc.perform(put("/api/task_statuses/" + status.getId())
+		mockMvc.perform(put("/api/tasks/" + task.getId())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(data)))
 				.andExpect(status().isUnauthorized());
 	}
 
 	@Test
-	void deleteRemovesStatus() throws Exception {
-		var status = createStatus("Delete me", "delete-me");
+	void deleteRemovesTask() throws Exception {
+		var task = createTask("Delete me");
 
-		mockMvc.perform(delete("/api/task_statuses/" + status.getId()).with(user("someone@example.com")))
+		mockMvc.perform(delete("/api/tasks/" + task.getId()).with(user("someone@example.com")))
 				.andExpect(status().isNoContent());
 
-		assertThat(taskStatusRepository.existsById(status.getId())).isFalse();
+		assertThat(taskRepository.existsById(task.getId())).isFalse();
 	}
 
 	@Test
 	void deleteRequiresAuth() throws Exception {
-		var status = createStatus("Stay forever", "stay-forever");
+		var task = createTask("Stay forever");
 
-		mockMvc.perform(delete("/api/task_statuses/" + status.getId()))
+		mockMvc.perform(delete("/api/tasks/" + task.getId()))
 				.andExpect(status().isUnauthorized());
 
-		assertThat(taskStatusRepository.existsById(status.getId())).isTrue();
+		assertThat(taskRepository.existsById(task.getId())).isTrue();
 	}
 
-	@Test
-	void cannotDeleteStatusAssignedToTask() throws Exception {
-		var blockingStatus = createStatus("Blocking status", "blocking-status");
-
+	private Task createTask(String title) {
 		var task = new Task();
-		task.setName("Blocking task");
-		task.setTaskStatus(blockingStatus);
-		taskRepository.save(task);
-
-		mockMvc.perform(delete("/api/task_statuses/" + blockingStatus.getId()).with(user("someone@example.com")))
-				.andExpect(status().isConflict());
-
-		assertThat(taskStatusRepository.existsById(blockingStatus.getId())).isTrue();
+		task.setName(title);
+		task.setTaskStatus(status);
+		return taskRepository.save(task);
 	}
 
-	private TaskStatus createStatus(String name, String slug) {
-		var status = new TaskStatus();
-		status.setName(name);
-		status.setSlug(slug);
-		return taskStatusRepository.save(status);
+	private User createUser(String email) {
+		var savedUser = new User();
+		savedUser.setEmail(email);
+		savedUser.setPassword("irrelevant-for-this-test");
+		return userRepository.save(savedUser);
 	}
 
 }

@@ -4,6 +4,7 @@ import hexlet.code.app.dto.UserCreateDTO;
 import hexlet.code.app.dto.UserDTO;
 import hexlet.code.app.dto.UserUpdateDTO;
 import hexlet.code.app.model.User;
+import hexlet.code.app.repository.TaskRepository;
 import hexlet.code.app.repository.UserRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class UserService {
 
 	private final UserRepository userRepository;
+	private final TaskRepository taskRepository;
 	private final PasswordEncoder passwordEncoder;
 
 	public List<UserDTO> getAll() {
@@ -63,6 +65,11 @@ public class UserService {
 	public void delete(Long id) {
 		var user = findOrThrow(id);
 		requireSelf(user);
+
+		if (taskRepository.existsByAssignee(user)) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete a user assigned to existing tasks");
+		}
+
 		userRepository.deleteById(id);
 	}
 

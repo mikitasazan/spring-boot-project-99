@@ -8,6 +8,10 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import tools.jackson.databind.ObjectMapper;
 import hexlet.code.app.dto.UserCreateDTO;
 import hexlet.code.app.dto.UserUpdateDTO;
+import hexlet.code.app.model.Task;
+import hexlet.code.app.model.TaskStatus;
+import hexlet.code.app.repository.TaskRepository;
+import hexlet.code.app.repository.TaskStatusRepository;
 import hexlet.code.app.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +40,12 @@ class UserControllerTest {
 	private UserRepository userRepository;
 
 	@Autowired
+	private TaskRepository taskRepository;
+
+	@Autowired
+	private TaskStatusRepository taskStatusRepository;
+
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -48,6 +58,7 @@ class UserControllerTest {
 		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
 				.apply(springSecurity())
 				.build();
+		taskRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 
@@ -161,6 +172,27 @@ class UserControllerTest {
 				.andExpect(status().isForbidden());
 
 		assertThat(userRepository.existsById(target.getId())).isTrue();
+	}
+
+	@Test
+	void cannotDeleteUserAssignedToTask() throws Exception {
+		var assignee = createUser("busy@example.com", "secretpw");
+
+		var status = new TaskStatus();
+		status.setName("Blocking status for user test");
+		status.setSlug("blocking-status-for-user-test");
+		taskStatusRepository.save(status);
+
+		var task = new Task();
+		task.setName("Blocking task");
+		task.setTaskStatus(status);
+		task.setAssignee(assignee);
+		taskRepository.save(task);
+
+		mockMvc.perform(delete("/api/users/" + assignee.getId()).with(user("busy@example.com")))
+				.andExpect(status().isConflict());
+
+		assertThat(userRepository.existsById(assignee.getId())).isTrue();
 	}
 
 	private hexlet.code.app.model.User createUser(String email, String password) {

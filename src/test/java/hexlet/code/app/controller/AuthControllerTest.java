@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import tools.jackson.databind.ObjectMapper;
 import hexlet.code.app.dto.LoginDTO;
 import hexlet.code.app.model.User;
+import hexlet.code.app.repository.TaskRepository;
 import hexlet.code.app.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,9 @@ class AuthControllerTest {
 	private UserRepository userRepository;
 
 	@Autowired
+	private TaskRepository taskRepository;
+
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -42,6 +46,7 @@ class AuthControllerTest {
 		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
 				.apply(springSecurity())
 				.build();
+		taskRepository.deleteAll();
 		userRepository.deleteAll();
 
 		var user = new User();

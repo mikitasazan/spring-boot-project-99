@@ -4,6 +4,7 @@ import hexlet.code.app.dto.TaskStatusCreateDTO;
 import hexlet.code.app.dto.TaskStatusDTO;
 import hexlet.code.app.dto.TaskStatusUpdateDTO;
 import hexlet.code.app.model.TaskStatus;
+import hexlet.code.app.repository.TaskRepository;
 import hexlet.code.app.repository.TaskStatusRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class TaskStatusService {
 
 	private final TaskStatusRepository taskStatusRepository;
+	private final TaskRepository taskRepository;
 
 	public List<TaskStatusDTO> getAll() {
 		return taskStatusRepository.findAll().stream()
@@ -49,9 +51,12 @@ public class TaskStatusService {
 	}
 
 	public void delete(Long id) {
-		if (!taskStatusRepository.existsById(id)) {
-			throw notFound(id);
+		var status = findOrThrow(id);
+
+		if (taskRepository.existsByTaskStatus(status)) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete a status assigned to existing tasks");
 		}
+
 		taskStatusRepository.deleteById(id);
 	}
 
