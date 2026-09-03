@@ -1,28 +1,42 @@
 # Менеджер задач (Java)
 
 [![hexlet-check](https://github.com/mikitasazan/spring-boot-project-99/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/mikitasazan/spring-boot-project-99/actions)
+[![Java CI](https://github.com/mikitasazan/spring-boot-project-99/actions/workflows/build.yml/badge.svg)](https://github.com/mikitasazan/spring-boot-project-99/actions)
 
-На практике узнаете про проектирование баз данных, связи между сущностями, PaaS, ORM, мониторинг ошибок, Swagger, фреймворк Spring.
+Task Manager — система управления задачами (аналог Redmine): регистрация,
+аутентификация, задачи, статусы, метки, фильтрация.
 
 Учебный проект Хекслета: https://ru.hexlet.io/programs/spring-boot
 Как это должно работать: https://files.hexlet.app/a/xg6yxv
 
 ## Стек
 
-- Java
+- Java 21, Spring Boot 4
+- Gradle
 
 ## Установка
-
-<!-- Опишите установку: клонирование, зависимости, переменные окружения -->
 
 ```bash
 git clone https://github.com/mikitasazan/spring-boot-project-99.git
 cd spring-boot-project-99
+make setup
 ```
 
 ## Использование
 
-<!-- Добавьте примеры запуска и запись asciinema — именно это смотрит работодатель -->
+```bash
+make start
+```
+
+Приложение поднимется на `http://localhost:8080`. Проверка:
+
+```bash
+curl http://localhost:8080/welcome
+# Welcome to Spring
+```
+
+Публичного деплоя нет — по решению владельца проект остаётся локальным, шаги
+и автопроверка Hexlet не завязаны на живой стенд.
 
 ---
 
